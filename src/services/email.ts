@@ -9,6 +9,8 @@ interface Env {
   DB: D1Database
   R2: R2Bucket
   MAIL_DOMAIN: string
+  TG_BOT_TOKEN?: string
+  TG_CHAT_ID?: string
 }
 
 // 计算文件哈希（用于附件去重）
@@ -110,6 +112,55 @@ export async function handleEmail(
   }
 
   console.log(`Email saved: ${parsed.subject} (code: ${verificationCode || 'none'})`)
+
+  // TG 推送通知
+  if (env.TG_BOT_TOKEN && env.TG_CHAT_ID) {
+    await sendTelegramNotification(env, {
+      from: parsed.from,
+      to: toAddress,
+      subject: parsed.subject,
+      preview,
+      verificationCode,
+    })
+  }
+}
+
+// TG 推送通知
+async function sendTelegramNotification(
+  env: Env,
+  email: {
+    from: string
+    to: string
+    subject: string
+    preview: string
+    verificationCode: string | null
+  }
+): Promise<void> {
+  try {
+    const codeText = email.verificationCode ? `\n🔑 验证码: ${email.verificationCode}` : ''
+    const text = `📬 新邮件
+
+📤 发件人: ${email.from}
+📥 收件人: ${email.to}
+📋 主题: ${email.subject}${codeText}
+
+${email.preview}`
+
+    const res = await fetch(`https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: env.TG_CHAT_ID,
+        text,
+      }),
+    })
+
+    if (!res.ok) {
+      console.error(`TG 推送失败: ${res.status}`)
+    }
+  } catch (e) {
+    console.error('TG 推送异常:', e)
+  }
 }
 
 // 保存附件（带去重逻辑）
