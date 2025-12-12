@@ -13,6 +13,10 @@ Just Simple One CF-Mail.
 
 ![alt text](<asset/image copy 12.png>)
 
+![alt text](<asset/image copy 13.png>)
+
+![alt text](<asset/image copy 14.png>)
+
 
 ## 部署
 
@@ -132,8 +136,7 @@ Just Simple One CF-Mail.
 
 配置后，新邮件会自动推送到 Telegram：
 
-<!-- TODO: 添加 TG 推送效果截图 -->
-<!-- ![TG 推送效果](docs/images/tg-notification.png) -->
+![alt text](<asset/image copy 14.png>)
 
 ## 鸣谢
 
