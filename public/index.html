@@ -508,8 +508,25 @@
                     </select>
                 </div>
 
+                <!-- Telegram Settings -->
+                <div class="pt-4 border-t border-gray-200">
+                    <h4 class="text-sm font-semibold text-gray-800 mb-3">Telegram Notification</h4>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Bot Token</label>
+                            <input type="password" x-model="settings.tg_bot_token" placeholder="123456:ABC-DEF..."
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Chat ID</label>
+                            <input type="text" x-model="settings.tg_chat_id" placeholder="-1001234567890"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Delete Auto Created -->
-                <div class="pt-2 border-t border-gray-200">
+                <div class="pt-4 border-t border-gray-200">
                     <button @click="deleteAutoCreatedMailboxes"
                         class="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2">
                         <i class="ph ph-trash"></i> Delete All Auto-Created Mailboxes
@@ -550,7 +567,9 @@
                     auto_create_enabled: 'false',
                     auto_create_min_length: '6',
                     auto_create_max_length: '20',
-                    auto_create_start_type: 'both'
+                    auto_create_start_type: 'both',
+                    tg_bot_token: '',
+                    tg_chat_id: ''
                 },
 
                 async init() {

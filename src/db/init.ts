@@ -41,6 +41,8 @@ export async function initDatabase(db: D1Database): Promise<void> {
     await db.exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_create_min_length', '6');")
     await db.exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_create_max_length', '20');")
     await db.exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_create_start_type', 'both');")
+    await db.exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('tg_bot_token', '');")
+    await db.exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('tg_chat_id', '');")
 
     console.log('Database initialized')
     initialized = true
