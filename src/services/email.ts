@@ -86,7 +86,8 @@ async function tryAutoCreateMailbox(db: D1Database, address: string): Promise<{ 
     ).bind(address, localPart, domain).first<{ id: number }>()
     console.log(`Auto-created mailbox: ${address}`)
     return result
-  } catch {
+  } catch (e) {
+    console.log(`Auto-create failed for ${address}:`, e)
     return null
   }
 }
