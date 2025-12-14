@@ -7,7 +7,7 @@ Just Simple One CF-Mail.
 - **单用户设计** - 专为个人使用，无需复杂的多用户管理
 - **仅收件** - 不支持发件，简单纯粹
 - **验证码提取** - 自动识别邮件中的验证码，一键复制
-- **Telegram 推送** - 新邮件实时推送到 TG，验证码直接显示
+- **Telegram 推送** - 新邮件实时推送到 TG，验证码直接显示，自动获取ChatID
 - **自动创建邮箱** - 在主页设置中打开开关后，无需进入到邮箱页面可收码，自动创建的邮箱可以批量删除
 
 ## 展示
@@ -119,11 +119,10 @@ Just Simple One CF-Mail.
 
 **2. 获取 Chat ID**
 
-1. 与你的 Bot 对话，发送任意消息
-2. 访问 `https://api.telegram.org/bot<你的TOKEN>/getUpdates`
-3. 在返回的 JSON 中找到 `chat.id`
-
-![alt text](<asset/image copy 6.png>)
+1. **与你的 Bot 对话，发送任意消息**
+2. 设置页面中填入你的Token
+3. 自动获取ChatID，如果没获取到请手动访问：
+  `https://api.telegram.org/bot<Token>/getUpdates`
 
 **3. 配置变量**
 
