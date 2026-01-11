@@ -201,8 +201,17 @@
                     </button>
                 </div>
 
+                <!-- Search -->
+                <div class="px-2 pt-2">
+                    <div class="relative">
+                        <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                        <input type="text" x-model="searchQuery" placeholder="Search..."
+                            class="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 outline-none">
+                    </div>
+                </div>
+
                 <div class="overflow-y-auto flex-1 p-2 space-y-1">
-                    <template x-for="box in mailboxes" :key="box.id">
+                    <template x-for="box in filteredMailboxes" :key="box.id">
                         <div @click="selectMailbox(box)"
                             class="group flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition text-sm relative"
                             :class="selectedMailbox?.id === box.id ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'">
@@ -227,8 +236,9 @@
                         </div>
                     </template>
 
-                    <div x-show="mailboxes.length === 0 && !isLoading" class="text-center py-8 text-gray-400 text-sm">
-                        No mailboxes yet.
+                    <div x-show="filteredMailboxes.length === 0 && !isLoading" class="text-center py-8 text-gray-400 text-sm">
+                        <span x-show="searchQuery">No results</span>
+                        <span x-show="!searchQuery">No mailboxes yet.</span>
                     </div>
                 </div>
             </aside>
@@ -238,9 +248,8 @@
                 <div class="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 h-[57px]">
                     <h3 class="font-semibold text-gray-800 truncate pr-2" x-text="selectedMailbox?.address"></h3>
                     <button @click="fetchMessages(selectedMailbox.id)"
-                        class="text-gray-500 hover:text-blue-600 p-1 rounded hover:bg-gray-200 transition"
-                        :class="{'animate-spin': isLoadingMessages}">
-                        <i class="ph ph-arrow-clockwise text-lg"></i>
+                        class="text-gray-500 hover:text-blue-600 p-1 rounded hover:bg-gray-200 transition">
+                        <i class="ph ph-arrow-clockwise text-lg" :class="{'animate-spin': isLoadingMessages}"></i>
                     </button>
                 </div>
 
@@ -364,7 +373,18 @@
                             <template x-if="selectedMessage">
                                 <iframe class="w-full h-full min-h-[600px] border-none"
                                     :srcdoc="selectedMessage.html || '<pre class=\'p-4 font-sans whitespace-pre-wrap\'>' + (selectedMessage.text || 'No content') + '</pre>'"
-                                    onload="this.style.height = this.contentWindow.document.documentElement.scrollHeight + 'px'"></iframe>
+                                    x-init="$watch('selectedMessage', () => { imagePreview = null })"
+                                    @load="
+                                        $el.style.height = $el.contentWindow.document.documentElement.scrollHeight + 'px';
+                                        const imgs = $el.contentWindow.document.querySelectorAll('img');
+                                        imgs.forEach(img => {
+                                            img.style.cursor = 'zoom-in';
+                                            img.onclick = (e) => {
+                                                e.preventDefault();
+                                                openImagePreview(img.src);
+                                            };
+                                        });
+                                    "></iframe>
                             </template>
                         </div>
                     </div>
@@ -563,6 +583,25 @@
         </div>
     </div>
 
+    <!-- Image Preview Modal -->
+    <div x-show="imagePreview" x-cloak
+        class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center"
+        @click.self="imagePreview = null"
+        @keydown.escape.window="imagePreview = null">
+        <div class="relative select-none"
+            :style="`transform: translate(${imagePos.x}px, ${imagePos.y}px)`"
+            @mousedown="startDrag($event)"
+            @mousemove.window="onDrag($event)"
+            @mouseup.window="stopDrag()"
+            @mouseleave.window="stopDrag()">
+            <button @click="imagePreview = null"
+                class="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-600 hover:text-red-500 z-10">
+                <i class="ph ph-x text-lg"></i>
+            </button>
+            <img :src="imagePreview" class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl cursor-move">
+        </div>
+    </div>
+
     <script>
         function app() {
             return {
@@ -571,9 +610,15 @@
                 loginError: '',
                 isLoading: false,
                 mailboxes: [],
+                searchQuery: '',
                 messages: [],
                 selectedMailbox: null,
                 selectedMessage: null,
+                // 图片预览
+                imagePreview: null,
+                imagePos: { x: 0, y: 0 },
+                imageDragging: false,
+                dragStart: { x: 0, y: 0 },
                 isLoadingMessages: false,
                 isLoadingContent: false,
                 isLoadingContent: false,
@@ -594,6 +639,12 @@
                 },
                 tgEnabled: false,
                 fetchingChatId: false,
+
+                get filteredMailboxes() {
+                    if (!this.searchQuery.trim()) return this.mailboxes;
+                    const q = this.searchQuery.toLowerCase();
+                    return this.mailboxes.filter(box => box.address.toLowerCase().includes(q));
+                },
 
                 async init() {
                     // Check auth status by trying to fetch mailboxes (or check cookie existence if we could, but HTTPOnly)
@@ -886,6 +937,24 @@
                     } finally {
                         this.fetchingChatId = false;
                     }
+                },
+
+                // 图片拖动
+                startDrag(e) {
+                    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'I') return;
+                    this.imageDragging = true;
+                    this.dragStart = { x: e.clientX - this.imagePos.x, y: e.clientY - this.imagePos.y };
+                },
+                onDrag(e) {
+                    if (!this.imageDragging) return;
+                    this.imagePos = { x: e.clientX - this.dragStart.x, y: e.clientY - this.dragStart.y };
+                },
+                stopDrag() {
+                    this.imageDragging = false;
+                },
+                openImagePreview(src) {
+                    this.imagePreview = src;
+                    this.imagePos = { x: 0, y: 0 };
                 }
             }
         }

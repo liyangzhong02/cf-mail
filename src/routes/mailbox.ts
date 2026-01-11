@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 
 type Bindings = {
   DB: D1Database
+  R2: R2Bucket
   MAIL_DOMAIN: string
 }
 
@@ -90,17 +91,71 @@ mailbox.delete('/mailboxes/:id', async (c) => {
     return c.json({ error: 'Mailbox not found' }, 404)
   }
 
+  // 获取所有邮件的 R2 keys
+  const messages = await c.env.DB.prepare('SELECT r2_key FROM messages WHERE mailbox_id = ?').bind(id).all()
+
+  // 获取附件（检查引用计数）
+  const attachments = await c.env.DB.prepare(
+    `SELECT a.hash, a.r2_key, (SELECT COUNT(*) FROM attachments WHERE hash = a.hash) as ref_count
+     FROM attachments a
+     WHERE a.message_id IN (SELECT id FROM messages WHERE mailbox_id = ?)
+     GROUP BY a.hash`
+  ).bind(id).all()
+
   // 删除邮箱（关联的 messages 和 attachments 会级联删除）
   await c.env.DB.prepare('DELETE FROM mailboxes WHERE id = ?').bind(id).run()
 
-  // TODO: 清理 R2 中的邮件和附件文件
+  // 清理 R2 中的 EML 文件
+  for (const msg of messages.results || []) {
+    await c.env.R2.delete(msg.r2_key as string)
+  }
+
+  // 清理不再被引用的附件
+  for (const att of attachments.results || []) {
+    if ((att.ref_count as number) === 1) {
+      await c.env.R2.delete(att.r2_key as string)
+    }
+  }
 
   return c.json({ success: true })
 })
 
 // DELETE /api/mailboxes/auto-created - 批量删除自动创建的邮箱
 mailbox.delete('/mailboxes-auto-created', async (c) => {
+  // 获取所有自动创建邮箱的 ID
+  const mailboxIds = await c.env.DB.prepare('SELECT id FROM mailboxes WHERE is_auto_created = 1').all()
+  const ids = (mailboxIds.results || []).map((r) => r.id as number)
+
+  if (ids.length === 0) {
+    return c.json({ success: true, deleted: 0 })
+  }
+
+  const idList = ids.join(',')
+
+  // 获取所有邮件的 R2 keys
+  const messages = await c.env.DB.prepare(`SELECT r2_key FROM messages WHERE mailbox_id IN (${idList})`).all()
+
+  // 获取附件（检查引用计数）
+  const attachments = await c.env.DB.prepare(
+    `SELECT a.hash, a.r2_key, (SELECT COUNT(*) FROM attachments WHERE hash = a.hash) as ref_count
+     FROM attachments a
+     WHERE a.message_id IN (SELECT id FROM messages WHERE mailbox_id IN (${idList}))
+     GROUP BY a.hash`
+  ).all()
+
+  // 删除数据库记录
   const result = await c.env.DB.prepare('DELETE FROM mailboxes WHERE is_auto_created = 1').run()
+
+  // 清理 R2
+  for (const msg of messages.results || []) {
+    await c.env.R2.delete(msg.r2_key as string)
+  }
+  for (const att of attachments.results || []) {
+    if ((att.ref_count as number) <= ids.length) {
+      await c.env.R2.delete(att.r2_key as string)
+    }
+  }
+
   return c.json({ success: true, deleted: result.meta.changes })
 })
 

@@ -5,6 +5,8 @@
 import { parseEmail, Attachment } from './parser'
 import { extractVerificationCode } from './verification'
 
+const MAX_EMAIL_SIZE = 25 * 1024 * 1024 // 25MB
+
 interface Env {
   DB: D1Database
   R2: R2Bucket
@@ -105,6 +107,13 @@ export async function handleEmail(
   message: EmailMessage,
   env: Env
 ): Promise<void> {
+  // 检查邮件大小
+  if (message.rawSize > MAX_EMAIL_SIZE) {
+    console.log(`Email too large: ${message.rawSize} bytes, rejecting`)
+    message.setReject('Message too large')
+    return
+  }
+
   const toAddress = message.to.toLowerCase()
 
   // 检查收件邮箱是否存在
